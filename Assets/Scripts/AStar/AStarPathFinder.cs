@@ -125,8 +125,16 @@ public class AStarPathFinder : MonoBehaviour
                     continue;
                 }
 
+                int stepCost =
+                    neighbor.movementCost *
+                    (currentNode.x != neighbor.x &&
+                     currentNode.y != neighbor.y
+                        ? 14
+                        : 10) /
+                    10;
+
                 int tentativeGCost =
-                    currentNode.gCost + 10;
+                    currentNode.gCost + stepCost;
 
                 if (tentativeGCost <
                     neighbor.gCost)
@@ -200,7 +208,16 @@ public class AStarPathFinder : MonoBehaviour
         int dx = Mathf.Abs(a.x - b.x);
         int dy = Mathf.Abs(a.y - b.y);
 
-        return (dx + dy) * 10;
+        int diagonalSteps = Mathf.Min(dx, dy);
+        int straightSteps = Mathf.Max(dx, dy) - diagonalSteps;
+
+        int minimumTerrainCost =
+            gridManager.GetMinimumTerrainCost();
+
+        return (
+            diagonalSteps * 14 +
+            straightSteps * 10
+        ) * minimumTerrainCost / 10;
     }
 
     private List<GridNode> ReconstructPath(

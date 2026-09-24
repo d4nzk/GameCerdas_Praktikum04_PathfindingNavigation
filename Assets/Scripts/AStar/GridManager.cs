@@ -11,9 +11,19 @@ public class GridManager : MonoBehaviour
     [Header("Obstacle Detection")]
     public LayerMask obstacleMask;
 
+    [Header("Terrain Layers")]
+    public LayerMask mudMask;
+    public LayerMask roadMask;
+    public int normalCost = 10;
+    public int mudCost = 30;
+    public int roadCost = 5;
+
     [Header("Visualization")]
     public bool showGrid = true;
     public float visualHeight = 0.05f;
+    public Color normalColor = Color.white;
+    public Color mudColor = new Color(0.55f, 0.3f, 0.1f);
+    public Color roadColor = Color.gray;
 
     [System.NonSerialized]
     public GridNode[,] grid;
@@ -50,12 +60,15 @@ public class GridManager : MonoBehaviour
                 );
 
                 bool walkable = !blocked;
+                TerrainType terrainType = GetTerrainType(worldPosition);
 
                 GridNode node = new GridNode(
                     x,
                     y,
                     worldPosition,
-                    walkable
+                    walkable,
+                    terrainType,
+                    GetTerrainCost(terrainType)
                 );
 
                 grid[x, y] = node;
@@ -108,8 +121,68 @@ public class GridManager : MonoBehaviour
 
         SetNodeColor(
             node,
-            node.walkable ? Color.white : Color.black
+            node.walkable ? GetTerrainColor(node.terrainType) : Color.black
         );
+    }
+
+    private TerrainType GetTerrainType(Vector3 worldPosition)
+    {
+        Vector3 terrainCheckPosition =
+            worldPosition + Vector3.down * 0.5f;
+
+        if (Physics.CheckBox(
+                terrainCheckPosition,
+                new Vector3(cellSize * 0.4f, 0.6f, cellSize * 0.4f),
+                Quaternion.identity,
+                roadMask))
+        {
+            return TerrainType.Road;
+        }
+
+        if (Physics.CheckBox(
+            terrainCheckPosition,
+            new Vector3(cellSize * 0.4f, 0.6f, cellSize * 0.4f),
+                Quaternion.identity,
+                mudMask))
+        {
+            return TerrainType.Mud;
+        }
+
+        return TerrainType.Normal;
+    }
+
+    private int GetTerrainCost(TerrainType terrainType)
+    {
+        switch (terrainType)
+        {
+            case TerrainType.Mud:
+                return mudCost;
+            case TerrainType.Road:
+                return roadCost;
+            default:
+                return normalCost;
+        }
+    }
+
+    public int GetMinimumTerrainCost()
+    {
+        return Mathf.Max(
+            1,
+            Mathf.Min(normalCost, Mathf.Min(mudCost, roadCost))
+        );
+    }
+
+    private Color GetTerrainColor(TerrainType terrainType)
+    {
+        switch (terrainType)
+        {
+            case TerrainType.Mud:
+                return mudColor;
+            case TerrainType.Road:
+                return roadColor;
+            default:
+                return normalColor;
+        }
     }
 
     public GridNode NodeFromWorldPosition(Vector3 worldPosition)
@@ -135,6 +208,30 @@ public class GridManager : MonoBehaviour
         TryAddNeighbor(node.x - 1, node.y, neighbors);
         TryAddNeighbor(node.x, node.y + 1, neighbors);
         TryAddNeighbor(node.x, node.y - 1, neighbors);
+        TryAddDiagonalNeighbor(
+            node.x + 1,
+            node.y + 1,
+            node,
+            neighbors
+        );
+        TryAddDiagonalNeighbor(
+            node.x + 1,
+            node.y - 1,
+            node,
+            neighbors
+        );
+        TryAddDiagonalNeighbor(
+            node.x - 1,
+            node.y + 1,
+            node,
+            neighbors
+        );
+        TryAddDiagonalNeighbor(
+            node.x - 1,
+            node.y - 1,
+            node,
+            neighbors
+        );
 
         return neighbors;
     }
@@ -146,6 +243,28 @@ public class GridManager : MonoBehaviour
     {
         if (x < 0 || x >= width ||
             y < 0 || y >= height)
+        {
+            return;
+        }
+
+        neighbors.Add(grid[x, y]);
+    }
+
+    private void TryAddDiagonalNeighbor(
+        int x,
+        int y,
+        GridNode node,
+        List<GridNode> neighbors)
+    {
+        int horizontalX = x;
+        int horizontalY = node.y;
+        int verticalX = node.x;
+        int verticalY = y;
+
+        if (x < 0 || x >= width ||
+            y < 0 || y >= height ||
+            !grid[horizontalX, horizontalY].walkable ||
+            !grid[verticalX, verticalY].walkable)
         {
             return;
         }
@@ -166,7 +285,7 @@ public class GridManager : MonoBehaviour
                 SetNodeColor(
                     node,
                     node.walkable ?
-                    Color.white :
+                    GetTerrainColor(node.terrainType) :
                     Color.black
                 );
             }
