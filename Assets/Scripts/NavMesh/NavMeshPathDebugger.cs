@@ -5,13 +5,34 @@ using UnityEngine.AI;
 public class NavMeshPathDebugger : MonoBehaviour
 {
     private NavMeshAgent agent;
+    private float nextLogTime;
 
     public Color lineColor = Color.cyan;
+    public float logInterval = 0.25f;
 
     private void Awake()
     {
         agent =
             GetComponent<NavMeshAgent>();
+    }
+
+    private void Update()
+    {
+        if (agent == null ||
+            Time.time < nextLogTime)
+        {
+            return;
+        }
+
+        nextLogTime = Time.time + logInterval;
+
+        Debug.Log(
+            $"Pending: {agent.pathPending}, " +
+            $"Has Path: {agent.hasPath}, " +
+            $"Remaining: {agent.remainingDistance}, " +
+            $"Status: {agent.pathStatus}",
+            this
+        );
     }
 
     private void OnDrawGizmos()
